@@ -1,0 +1,4 @@
+- blood particle fx could be cool
+- background should signify when in range
+- slowmo effect
+- needs sound
