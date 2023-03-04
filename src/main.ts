@@ -235,7 +235,7 @@ function draw() {
 
   ctx.resetTransform();
 
-  if (winner == "left") ctx.fillStyle = "blue";
+  if (winner == "left") ctx.strokeStyle = "blue";
   else ctx.strokeStyle = "red";
   ctx.lineWidth = UNIT_PX / 10;
   if (gameState == "roundOver") {
