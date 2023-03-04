@@ -7,6 +7,8 @@ const HEIGHT = 150;
 const UNIT_PX = WIDTH / UNITS;
 const FPS = 60;
 const SLOW_MO = 0.1;
+const ATTACK_COOLDOWN = 60;
+const ROUND_OVER_TIME = 60;
 
 const roundStartSound = new Audio("round-start.wav");
 const roundWinSound = new Audio("win.wav");
@@ -14,16 +16,19 @@ const attackSound = new Audio("attack.wav");
 const tieSound = new Audio("tie.wav");
 const tickSound = new Audio("tick.wav");
 
-canvas.width = WIDTH;
-canvas.height = HEIGHT;
-
-setInterval(() => {
-  update();
-  draw();
-}, 1000 / FPS);
-
-const ATTACK_TIME = 20;
-const ATTACK_COOLDOWN = 60;
+interface Player {
+  x: number;
+  y: number;
+  leftHeld: boolean;
+  rightHeld: boolean;
+  attackHeld: boolean;
+  lastDir: number;
+  isLeft: boolean;
+  attackFrame: number;
+  speedMult: number;
+  momentum: number;
+  gameOverDir: number;
+}
 
 function createPlayer(
   x: number,
@@ -46,76 +51,6 @@ function createPlayer(
   };
 }
 
-interface Player {
-  x: number;
-  y: number;
-  leftHeld: boolean;
-  rightHeld: boolean;
-  attackHeld: boolean;
-  lastDir: number;
-  isLeft: boolean;
-  attackFrame: number;
-  speedMult: number;
-  momentum: number;
-  gameOverDir: number;
-}
-let leftPlayer = createPlayer(-3, 0, true);
-let rightPlayer = createPlayer(3, 0, false);
-let winner: "left" | "right" | null = null;
-
-let leftWins = 0;
-let rightWins = 0;
-
-let gameState: "pregame" | "playing" | "roundOver" = "pregame";
-let roundOverTimer = 0;
-const ROUND_OVER_TIME = 60;
-
-document.onkeydown = (e) => {
-  if (e.key === "a") {
-    leftPlayer.leftHeld = true;
-    leftPlayer.lastDir = -1;
-  }
-  if (e.key === "d") {
-    leftPlayer.rightHeld = true;
-    leftPlayer.lastDir = 1;
-  }
-  if (e.key === "s") {
-    leftPlayer.attackHeld = true;
-  }
-  if (e.key === "ArrowLeft") {
-    rightPlayer.leftHeld = true;
-    rightPlayer.lastDir = -1;
-  }
-  if (e.key === "ArrowRight") {
-    rightPlayer.rightHeld = true;
-    rightPlayer.lastDir = 1;
-  }
-  if (e.key === "ArrowDown") {
-    rightPlayer.attackHeld = true;
-  }
-};
-
-document.onkeyup = (e) => {
-  if (e.key === "a") {
-    leftPlayer.leftHeld = false;
-  }
-  if (e.key === "d") {
-    leftPlayer.rightHeld = false;
-  }
-  if (e.key === "s") {
-    leftPlayer.attackHeld = false;
-  }
-  if (e.key === "ArrowLeft") {
-    rightPlayer.leftHeld = false;
-  }
-  if (e.key === "ArrowRight") {
-    rightPlayer.rightHeld = false;
-  }
-  if (e.key === "ArrowDown") {
-    rightPlayer.attackHeld = false;
-  }
-};
-
 function updatePlayer(player: Player) {
   const timeMult = gameState == "roundOver" ? SLOW_MO : 1;
 
@@ -128,7 +63,7 @@ function updatePlayer(player: Player) {
     attackSound.load();
     attackSound.play();
   }
-  if (player.attackFrame <= ATTACK_COOLDOWN && gameState == "playing") {
+  if (player.attackFrame <= ATTACK_COOLDOWN) {
     player.attackFrame += 1 * timeMult;
   }
 
@@ -176,21 +111,13 @@ function update() {
     return;
   }
 
-  const playersOverlap = Math.abs(leftPlayer.x - rightPlayer.x) < 1;
-  if (playersOverlap) {
-    const overlapAmount = Math.abs(leftPlayer.x - rightPlayer.x) - 1;
-    leftPlayer.x += overlapAmount / 2;
-    rightPlayer.x -= overlapAmount / 2;
-  }
-
-  const timeMult = gameState == "roundOver" ? SLOW_MO : 1;
-
-  const playerDistance = Math.abs(leftPlayer.x + 1 - rightPlayer.x);
+  const playerDistance = Math.abs(leftPlayer.x - rightPlayer.x);
+  const playersTouching = playerDistance < 1;
 
   if (gameState === "playing") {
-    if (playerDistance <= 1) {
-      const leftAttacking = leftPlayer.attackFrame <= ATTACK_TIME;
-      const rightAttacking = rightPlayer.attackFrame <= ATTACK_TIME;
+    if (playersTouching) {
+      const leftAttacking = leftPlayer.attackFrame === 1;
+      const rightAttacking = rightPlayer.attackFrame === 1;
       if (leftAttacking && rightAttacking) {
         leftPlayer.momentum = -1;
         rightPlayer.momentum = 1;
@@ -198,6 +125,7 @@ function update() {
         tieSound.play();
       } else if (leftAttacking) {
         leftWins += 1;
+        winner = "left";
         document.getElementById("left-score")!.innerText = leftWins.toString();
         gameState = "roundOver";
         setGameOverDirs();
@@ -205,6 +133,7 @@ function update() {
         roundWinSound.play();
       } else if (rightAttacking) {
         rightWins += 1;
+        winner = "right";
         document.getElementById("right-score")!.innerText =
           rightWins.toString();
         gameState = "roundOver";
@@ -251,11 +180,16 @@ function newRound() {
 }
 
 function drawPlayer(player: Player) {
-  if (player.isLeft) ctx.fillStyle = "white";
-  else ctx.fillStyle = "black";
+  ctx.globalCompositeOperation = "lighter";
+  if (player.isLeft) ctx.fillStyle = "blue";
+  else ctx.fillStyle = "red";
 
-  if (gameState == "roundOver") {
-    if (player.isLeft && winner == "left") ctx.fillStyle = "red";
+  if (player.attackFrame < ATTACK_COOLDOWN) {
+    const brightness = (ATTACK_COOLDOWN - player.attackFrame) / ATTACK_COOLDOWN;
+    const val = Math.floor(brightness * 255);
+    const red = player.isLeft ? 0 : 255;
+    const blue = player.isLeft ? 255 : 0;
+    ctx.fillStyle = `rgb(${val + red}, ${val}, ${val + blue})`;
   }
 
   ctx.fillRect(
@@ -264,38 +198,17 @@ function drawPlayer(player: Player) {
     UNIT_PX,
     UNIT_PX
   );
-}
-
-function drawAttacks() {
-  if (leftPlayer.attackFrame <= ATTACK_TIME) {
-    ctx.fillStyle = "white";
-    ctx.fillRect(
-      leftPlayer.x * UNIT_PX + UNIT_PX / 2,
-      leftPlayer.y * UNIT_PX - UNIT_PX / 2,
-      UNIT_PX,
-      UNIT_PX / 2
-    );
-  }
-  if (rightPlayer.attackFrame <= ATTACK_TIME) {
-    ctx.fillStyle = "black";
-    ctx.fillRect(
-      rightPlayer.x * UNIT_PX - UNIT_PX / 2,
-      rightPlayer.y * UNIT_PX,
-      -UNIT_PX,
-      UNIT_PX / 2
-    );
-  }
+  ctx.globalCompositeOperation = "source-over";
 }
 
 function draw() {
-  ctx.fillStyle = "#888";
+  ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
   ctx.translate(WIDTH / 2, HEIGHT / 2);
 
   drawPlayer(leftPlayer);
   drawPlayer(rightPlayer);
-  drawAttacks();
 
   if (gameState == "pregame") {
     ctx.fillStyle = "black";
@@ -321,12 +234,11 @@ function draw() {
 
   ctx.resetTransform();
 
-  ctx.strokeStyle = "red";
+  if (winner == "left") ctx.fillStyle = "blue";
+  else ctx.strokeStyle = "red";
   ctx.lineWidth = UNIT_PX / 10;
   if (gameState == "roundOver") {
     ctx.strokeRect(0, 0, WIDTH, HEIGHT);
-    ctx.fillStyle = "#ff000011";
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
   }
   if (gameState == "pregame") {
     ctx.strokeStyle = "white";
@@ -346,5 +258,68 @@ function draw() {
     </div>
     `;
 }
+
+// setup
+let leftPlayer = createPlayer(-3, 0, true);
+let rightPlayer = createPlayer(3, 0, false);
+let leftWins = 0;
+let rightWins = 0;
+let gameState: "pregame" | "playing" | "roundOver" = "playing";
+let roundOverTimer = 0;
+let winner = "";
+
+canvas.width = WIDTH;
+canvas.height = HEIGHT;
+
+setInterval(() => {
+  update();
+  draw();
+}, 1000 / FPS);
+
+document.onkeydown = (e) => {
+  if (e.key === "a") {
+    leftPlayer.leftHeld = true;
+    leftPlayer.lastDir = -1;
+  }
+  if (e.key === "d") {
+    leftPlayer.rightHeld = true;
+    leftPlayer.lastDir = 1;
+  }
+  if (e.key === "s") {
+    leftPlayer.attackHeld = true;
+  }
+  if (e.key === "ArrowLeft") {
+    rightPlayer.leftHeld = true;
+    rightPlayer.lastDir = -1;
+  }
+  if (e.key === "ArrowRight") {
+    rightPlayer.rightHeld = true;
+    rightPlayer.lastDir = 1;
+  }
+  if (e.key === "ArrowDown") {
+    rightPlayer.attackHeld = true;
+  }
+};
+
+document.onkeyup = (e) => {
+  if (e.key === "a") {
+    leftPlayer.leftHeld = false;
+  }
+  if (e.key === "d") {
+    leftPlayer.rightHeld = false;
+  }
+  if (e.key === "s") {
+    leftPlayer.attackHeld = false;
+  }
+  if (e.key === "ArrowLeft") {
+    rightPlayer.leftHeld = false;
+  }
+  if (e.key === "ArrowRight") {
+    rightPlayer.rightHeld = false;
+  }
+  if (e.key === "ArrowDown") {
+    rightPlayer.attackHeld = false;
+  }
+};
 
 export {};
