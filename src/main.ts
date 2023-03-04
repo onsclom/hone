@@ -7,7 +7,8 @@ const HEIGHT = 150;
 const UNIT_PX = WIDTH / UNITS;
 const FPS = 60;
 const SLOW_MO = 0.1;
-const ATTACK_COOLDOWN = 60;
+const ATTACK_COOLDOWN = 45;
+const ATTACK_REPEAT = 90;
 const ROUND_OVER_TIME = 60;
 
 const roundStartSound = new Audio("round-start.wav");
@@ -45,7 +46,7 @@ function createPlayer(
     attackHeld: false,
     isLeft,
     speedMult: 1,
-    attackFrame: ATTACK_COOLDOWN,
+    attackFrame: ATTACK_REPEAT,
     momentum: 0,
     gameOverDir: 0,
   };
@@ -56,14 +57,14 @@ function updatePlayer(player: Player) {
 
   if (
     player.attackHeld &&
-    player.attackFrame >= ATTACK_COOLDOWN &&
+    player.attackFrame >= ATTACK_REPEAT &&
     gameState == "playing"
   ) {
     player.attackFrame = 0;
     attackSound.load();
     attackSound.play();
   }
-  if (player.attackFrame <= ATTACK_COOLDOWN) {
+  if (player.attackFrame <= ATTACK_REPEAT) {
     player.attackFrame += 1 * timeMult;
   }
 
@@ -184,11 +185,11 @@ function drawPlayer(player: Player) {
   if (player.isLeft) ctx.fillStyle = "blue";
   else ctx.fillStyle = "red";
 
-  if (player.attackFrame < ATTACK_COOLDOWN) {
-    const brightness = (ATTACK_COOLDOWN - player.attackFrame) / ATTACK_COOLDOWN;
-    const val = Math.floor(brightness * 255);
-    const red = player.isLeft ? 0 : 255;
-    const blue = player.isLeft ? 255 : 0;
+  if (player.attackFrame < ATTACK_REPEAT) {
+    const brightness = (ATTACK_REPEAT - player.attackFrame) / ATTACK_REPEAT;
+    const val = Math.floor(brightness ** 2 * 255);
+    const red = player.isLeft ? 0 : 255 * 0.5;
+    const blue = player.isLeft ? 255 * 0.5 : 0;
     ctx.fillStyle = `rgb(${val + red}, ${val}, ${val + blue})`;
   }
 
