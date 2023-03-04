@@ -46,24 +46,6 @@ function createPlayer(
   };
 }
 
-function createParticle(
-  x: number,
-  y: number,
-  r: number,
-  angle: number,
-  isRight: boolean,
-  speed: number
-) {
-  return {
-    x,
-    y,
-    r,
-    angle,
-    speed,
-    isBlack: isRight,
-  };
-}
-
 interface Player {
   x: number;
   y: number;
@@ -80,25 +62,6 @@ interface Player {
 let leftPlayer = createPlayer(-3, 0, true);
 let rightPlayer = createPlayer(3, 0, false);
 let winner: "left" | "right" | null = null;
-
-interface Particle {
-  x: number;
-  y: number;
-  r: number;
-  angle: number;
-  speed: number;
-  isBlack: boolean;
-}
-const particles: Particle[] = [...Array(100)].map((_, i) =>
-  createParticle(
-    Math.random() * UNITS,
-    (Math.random() * UNITS * HEIGHT) / WIDTH,
-    Math.random() * 0.02 + 0.03,
-    Math.random() * Math.PI * 2,
-    i % 2 === 0,
-    Math.random() * 0.005 + 0.005
-  )
-);
 
 let leftWins = 0;
 let rightWins = 0;
@@ -221,25 +184,6 @@ function update() {
   }
 
   const timeMult = gameState == "roundOver" ? SLOW_MO : 1;
-  particles.forEach((p) => {
-    const speed = p.isBlack
-      ? p.speed * rightPlayer.speedMult
-      : p.speed * leftPlayer.speedMult;
-    p.x += Math.cos(p.angle) * speed * timeMult;
-    p.y += Math.sin(p.angle) * speed * timeMult;
-    if (p.x + p.r < 0) {
-      p.x = UNITS + p.r;
-    }
-    if (p.x - p.r > UNITS) {
-      p.x = -p.r;
-    }
-    if (p.y + p.r < 0) {
-      p.y = (UNITS * HEIGHT) / WIDTH + p.r;
-    }
-    if (p.y - p.r > (UNITS * HEIGHT) / WIDTH) {
-      p.y = -p.r;
-    }
-  });
 
   const playerDistance = Math.abs(leftPlayer.x + 1 - rightPlayer.x);
 
@@ -346,17 +290,6 @@ function drawAttacks() {
 function draw() {
   ctx.fillStyle = "#888";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-  particles.forEach((p) => {
-    if (p.isBlack) {
-      ctx.fillStyle = "black";
-    } else {
-      ctx.fillStyle = "white";
-    }
-    ctx.beginPath();
-    ctx.arc(p.x * UNIT_PX, p.y * UNIT_PX, p.r * UNIT_PX, 0, Math.PI * 2);
-    ctx.fill();
-  });
 
   ctx.translate(WIDTH / 2, HEIGHT / 2);
 
